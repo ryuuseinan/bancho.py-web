@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { GameMode } from '../../GameModes';
-export const BEATMAPS_PER_PAGE = 66;
+export const BEATMAPS_PER_PAGE = 33;
 
 export enum MapStatus {
   GRAVEYARD = -2,

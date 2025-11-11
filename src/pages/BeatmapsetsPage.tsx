@@ -96,20 +96,38 @@ const SearchFilters = ({
   selectedStatus: MapStatus;
   selectedServer: string;
   gameMode: GameMode | typeof ALL_GAME_MODES;
-  onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onSearchChange: (value: string) => void;
   onStatusChange: (event: any) => void;
   onServerChange: (event: any) => void;
   onGameModeChange: (mode: GameMode | typeof ALL_GAME_MODES) => void;
-  onSearchClick: () => void;
+  onSearchClick: (query: string) => void;
   isLoading: boolean;
   hasPrivileges: boolean;
 }) => {
   const { t } = useTranslation();
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+
+  // Sincronizar el estado local con el prop cuando cambie externamente
+  useEffect(() => {
+    setLocalSearchQuery(searchQuery);
+  }, [searchQuery]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLocalSearchQuery(value);
+    // Eliminada toda la lógica de animación de typing
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !isLoading && hasPrivileges) {
-      onSearchClick();
+      onSearchChange(localSearchQuery);
+      onSearchClick(localSearchQuery);
     }
+  };
+
+  const handleSearchClick = () => {
+    onSearchChange(localSearchQuery);
+    onSearchClick(localSearchQuery);
   };
 
   return (
@@ -128,8 +146,8 @@ const SearchFilters = ({
                 ? t('beatmapset.search_placeholder')
                 : 'Inicia sesión para buscar'
             }
-            value={searchQuery}
-            onChange={onSearchChange}
+            value={localSearchQuery}
+            onChange={handleInputChange}
             onKeyPress={handleKeyPress}
             disabled={isLoading || !hasPrivileges}
             InputProps={{
@@ -158,7 +176,7 @@ const SearchFilters = ({
           />
           <Button
             variant="contained"
-            onClick={onSearchClick}
+            onClick={handleSearchClick}
             disabled={isLoading || !hasPrivileges}
             sx={{
               minWidth: '120px',
@@ -169,6 +187,7 @@ const SearchFilters = ({
               borderRadius: 2,
               fontSize: '16px',
               fontWeight: 'bold',
+              position: 'relative',
               '&:hover': {
                 opacity: 0.9,
               },
@@ -178,7 +197,11 @@ const SearchFilters = ({
               },
             }}
           >
-            {t('beatmapset.search_button') || 'Buscar'}
+            {isLoading ? (
+              <CircularProgress size={20} sx={{ color: 'white' }} />
+            ) : (
+              t('beatmapset.search_button') || 'Buscar'
+            )}
           </Button>
         </Stack>
 
@@ -489,8 +512,9 @@ const useBeatmapSearch = (
   const [hasMore, setHasMore] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
 
+  // Función de búsqueda que recibe la query como parámetro para evitar problemas de closure
   const loadBeatmaps = useCallback(
-    async (page: number = 1, append: boolean = false) => {
+    async (page: number = 1, append: boolean = false, query?: string) => {
       if (!hasPrivileges) {
         if (!append) {
           setSearchResults([]);
@@ -500,16 +524,13 @@ const useBeatmapSearch = (
       }
 
       if (beatmapId === 0) {
-        if (!append) {
-          setSearchResults([]);
-          setShowResults(false);
-        }
-
         const loading = page > 1 ? setLoadingMore : setIsSearching;
         loading(true);
 
         try {
-          const hasQuery = searchQuery.trim().length > 0;
+          // Usar la query pasada como parámetro o el estado actual
+          const searchTerm = query !== undefined ? query : searchQuery;
+          const hasQuery = searchTerm.trim().length > 0;
           const hasStatusFilter = selectedStatus !== MapStatus.ALL;
           const hasServerFilter = selectedServer !== 'private';
 
@@ -519,7 +540,7 @@ const useBeatmapSearch = (
 
           if (shouldSearch) {
             result = await searchBeatmapsets(
-              searchQuery,
+              searchTerm,
               gameMode,
               selectedStatus === MapStatus.ALL ? undefined : selectedStatus,
               selectedServer,
@@ -561,16 +582,16 @@ const useBeatmapSearch = (
     [
       hasPrivileges,
       beatmapId,
-      searchQuery,
       gameMode,
       selectedStatus,
       selectedServer,
-    ],
+      searchQuery,
+    ], // Agregado searchQuery de vuelta
   );
 
   const loadMore = useCallback(() => {
     if (hasMore && !isSearching && !loadingMore && hasPrivileges) {
-      loadBeatmaps(currentPage + 1, true);
+      loadBeatmaps(currentPage + 1, true, searchQuery); // Pasar searchQuery actual
     }
   }, [
     hasMore,
@@ -578,10 +599,11 @@ const useBeatmapSearch = (
     loadingMore,
     currentPage,
     hasPrivileges,
+    searchQuery,
     loadBeatmaps,
   ]);
 
-  const resetSearch = () => {
+  const resetSearch = useCallback(() => {
     if (!hasPrivileges) return;
 
     setSearchResults([]);
@@ -590,7 +612,7 @@ const useBeatmapSearch = (
     setTotalResults(0);
     setLoadingMore(false);
     setShowResults(false);
-  };
+  }, [hasPrivileges]);
 
   const clearResults = () => {
     setSearchResults([]);
@@ -600,11 +622,23 @@ const useBeatmapSearch = (
     setTotalResults(0);
   };
 
-  const performSearch = () => {
-    if (!hasPrivileges) return;
-    resetSearch();
-    loadBeatmaps(1, false);
-  };
+  const performSearch = useCallback(
+    (query?: string) => {
+      if (!hasPrivileges) return;
+
+      // Resetear estado
+      setSearchResults([]);
+      setCurrentPage(1);
+      setHasMore(false);
+      setTotalResults(0);
+      setLoadingMore(false);
+      setShowResults(false);
+
+      // Ejecutar búsqueda con la query específica
+      loadBeatmaps(1, false, query);
+    },
+    [hasPrivileges, loadBeatmaps],
+  );
 
   return {
     searchQuery,
@@ -746,8 +780,8 @@ export const BeatmapsetsPage = () => {
     }
   }, [hasPrivileges]);
 
-  const handleSearchClick = () => {
-    search.performSearch();
+  const handleSearchClick = (query: string) => {
+    search.performSearch(query); // Pasar la query directamente
   };
 
   const handleBeatmapsetSelect = (beatmapset: BeatmapDetails) => {
@@ -783,9 +817,9 @@ export const BeatmapsetsPage = () => {
     search.setSelectedServer(newServer);
   };
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = (value: string) => {
     if (!hasPrivileges) return;
-    search.setSearchQuery(e.target.value);
+    search.setSearchQuery(value);
   };
 
   return (
@@ -805,7 +839,7 @@ export const BeatmapsetsPage = () => {
         onStatusChange={(e) => handleStatusChange(Number(e.target.value))}
         onServerChange={(e) => handleServerChange(e.target.value)}
         onGameModeChange={handleGameModeChange}
-        onSearchClick={handleSearchClick}
+        onSearchClick={handleSearchClick} // Ahora recibe la query como parámetro
         isLoading={search.isSearching}
         hasPrivileges={hasPrivileges}
       />
