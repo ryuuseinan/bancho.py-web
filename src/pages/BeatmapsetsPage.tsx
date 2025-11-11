@@ -107,7 +107,6 @@ const SearchFilters = ({
   const { t } = useTranslation();
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
 
-  // Sincronizar el estado local con el prop cuando cambie externamente
   useEffect(() => {
     setLocalSearchQuery(searchQuery);
   }, [searchQuery]);
@@ -115,7 +114,6 @@ const SearchFilters = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setLocalSearchQuery(value);
-    // Eliminada toda la lógica de animación de typing
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -512,7 +510,6 @@ const useBeatmapSearch = (
   const [hasMore, setHasMore] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
 
-  // Función de búsqueda que recibe la query como parámetro para evitar problemas de closure
   const loadBeatmaps = useCallback(
     async (page: number = 1, append: boolean = false, query?: string) => {
       if (!hasPrivileges) {
@@ -528,7 +525,6 @@ const useBeatmapSearch = (
         loading(true);
 
         try {
-          // Usar la query pasada como parámetro o el estado actual
           const searchTerm = query !== undefined ? query : searchQuery;
           const hasQuery = searchTerm.trim().length > 0;
           const hasStatusFilter = selectedStatus !== MapStatus.ALL;
@@ -586,12 +582,12 @@ const useBeatmapSearch = (
       selectedStatus,
       selectedServer,
       searchQuery,
-    ], // Agregado searchQuery de vuelta
+    ],
   );
 
   const loadMore = useCallback(() => {
     if (hasMore && !isSearching && !loadingMore && hasPrivileges) {
-      loadBeatmaps(currentPage + 1, true, searchQuery); // Pasar searchQuery actual
+      loadBeatmaps(currentPage + 1, true, searchQuery);
     }
   }, [
     hasMore,
@@ -626,7 +622,6 @@ const useBeatmapSearch = (
     (query?: string) => {
       if (!hasPrivileges) return;
 
-      // Resetear estado
       setSearchResults([]);
       setCurrentPage(1);
       setHasMore(false);
@@ -634,7 +629,6 @@ const useBeatmapSearch = (
       setLoadingMore(false);
       setShowResults(false);
 
-      // Ejecutar búsqueda con la query específica
       loadBeatmaps(1, false, query);
     },
     [hasPrivileges, loadBeatmaps],
@@ -781,7 +775,7 @@ export const BeatmapsetsPage = () => {
   }, [hasPrivileges]);
 
   const handleSearchClick = (query: string) => {
-    search.performSearch(query); // Pasar la query directamente
+    search.performSearch(query);
   };
 
   const handleBeatmapsetSelect = (beatmapset: BeatmapDetails) => {
@@ -839,7 +833,7 @@ export const BeatmapsetsPage = () => {
         onStatusChange={(e) => handleStatusChange(Number(e.target.value))}
         onServerChange={(e) => handleServerChange(e.target.value)}
         onGameModeChange={handleGameModeChange}
-        onSearchClick={handleSearchClick} // Ahora recibe la query como parámetro
+        onSearchClick={handleSearchClick}
         isLoading={search.isSearching}
         hasPrivileges={hasPrivileges}
       />
